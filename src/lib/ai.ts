@@ -165,6 +165,15 @@ const FIX_SUGGESTION_SCHEMA = {
   strict: true
 } as const;
 
+const DEEPSEEK_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.deepseek.com';
+
+function createClient(apiKey: string): OpenAI {
+  return new OpenAI({
+    apiKey,
+    baseURL: DEEPSEEK_BASE_URL
+  });
+}
+
 export async function analyzeWithAi(input: {
   snapshot: PullRequestSnapshot;
   candidates: RiskCandidate[];
@@ -172,8 +181,9 @@ export async function analyzeWithAi(input: {
   mode?: 'fast' | 'deep';
 }): Promise<ReviewReport> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || 'gpt-5.5';
-  const fastModel = process.env.OPENAI_FAST_MODEL || 'gpt-5.4-mini';
+  // DeepSeek 模型默认值
+  const model = process.env.OPENAI_MODEL || 'deepseek-chat';
+  const fastModel = process.env.OPENAI_FAST_MODEL || 'deepseek-chat';
   const ruleFindings = candidatesToFindings(input.candidates);
 
   if (!apiKey) {
@@ -189,7 +199,7 @@ export async function analyzeWithAi(input: {
   }
 
   try {
-    const client = new OpenAI({ apiKey });
+    const client = createClient(apiKey);
     const analysis = await requestAiReview(client, {
       snapshot: input.snapshot,
       candidates: input.candidates,
@@ -324,7 +334,7 @@ export async function askQuestion(input: {
   conversationHistory?: ConversationMessage[];
 }): Promise<AskResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const fastModel = process.env.OPENAI_FAST_MODEL || 'gpt-5.4-mini';
+  const fastModel = process.env.OPENAI_FAST_MODEL || 'deepseek-chat';
 
   if (!apiKey) {
     return {
@@ -334,7 +344,7 @@ export async function askQuestion(input: {
     };
   }
 
-  const client = new OpenAI({ apiKey });
+  const client = createClient(apiKey);
   const prompt = buildAskPrompt(input.snapshot, input.question, input.report, input.conversationHistory);
 
   const response = await client.chat.completions.create({
@@ -437,13 +447,13 @@ export async function generateFixSuggestion(input: {
   finding: ReviewFinding;
 }): Promise<FixSuggestion> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || 'gpt-5.5';
+  const model = process.env.OPENAI_MODEL || 'deepseek-chat';
 
   if (!apiKey) {
     throw new Error('未配置 OPENAI_API_KEY，无法生成修复建议。');
   }
 
-  const client = new OpenAI({ apiKey });
+  const client = createClient(apiKey);
   const prompt = buildFixPrompt(input.snapshot, input.finding);
 
   const response = await client.chat.completions.create({
